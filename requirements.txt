@@ -1,0 +1,14 @@
+streamlit==1.27.0
+pandas==2.0.3
+psycopg2-binary==2.9.7
+SQLAlchemy==2.0.23
+sqlalchemy-utils==0.41.1
+browser-use==0.0.41
+langchain-openai==0.0.2
+langchain-anthropic==0.1.0
+langchain-google-genai==0.0.6
+langchain-ollama==0.0.2
+pydantic==2.5.2
+python-dotenv==1.0.0
+playwright==1.40.0
+pillow==10.1.0
