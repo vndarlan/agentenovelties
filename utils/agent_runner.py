@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime
 import tempfile
 from pathlib import Path
+import traceback
 
 # Importar instaladores dinâmicos
 try:
@@ -107,9 +108,12 @@ def get_llm_instance(provider, model, api_key, endpoint=None):
 async def run_agent_task(task_id, task_instructions, llm, browser_config, save_path=None):
     """Executa uma tarefa de agente de forma assíncrona"""
     try:
+        print(f"Iniciando tarefa {task_id}")
+        
         # Criar diretório para armazenar screenshots
         screenshot_dir = Path(tempfile.gettempdir()) / "browser_agent_screenshots" / task_id
         screenshot_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Diretório de screenshots criado: {screenshot_dir}")
         
         # Configurar o modelo LLM
         llm_instance = get_llm_instance(
@@ -118,21 +122,28 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
             llm['api_key'], 
             llm.get('endpoint')
         )
+        print(f"LLM configurado: {llm['provider']}/{llm['model']}")
         
         # Configurar o navegador usando a configuração otimizada
         try:
             from utils.browser_config import get_browser_config
             browser_conf = get_browser_config(browser_config)
+            print("Configuração do navegador carregada")
         except ImportError:
             # Configuração de fallback se não puder importar
             browser_conf = BrowserConfig(
                 headless=True,
                 disable_security=True
             )
+            print("Usando configuração de fallback para o navegador")
         
+        # Iniciar o navegador
+        print("Iniciando navegador...")
         browser = Browser(config=browser_conf)
+        print("Navegador iniciado com sucesso")
         
         # Configurar e executar o agente
+        print("Configurando agente...")
         agent = Agent(
             task=task_instructions,
             llm=llm_instance,
@@ -140,12 +151,17 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
         )
         
         # Executar o agente e obter o histórico
+        print("Executando agente...")
         history = await agent.run()
+        print("Execução do agente concluída")
         
         # Fechar o navegador
+        print("Fechando navegador...")
         await browser.close()
+        print("Navegador fechado")
         
         # Copiar screenshots para o diretório temporário se existirem
+        print("Processando screenshots...")
         screenshot_paths = []
         for src_path in history.screenshots():
             if os.path.exists(src_path):
@@ -158,13 +174,16 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
                     import shutil
                     shutil.copy2(src_path, dst_path)
                     screenshot_paths.append(str(dst_path))
+                    print(f"Screenshot copiado: {dst_path}")
                 except Exception as e:
                     print(f"Erro ao copiar screenshot: {e}")
                     screenshot_paths.append(src_path)
             else:
+                print(f"Screenshot não encontrado: {src_path}")
                 screenshot_paths.append(src_path)
         
         # Preparar resultado
+        print("Preparando resultado...")
         result = {
             'id': task_id,
             'task': task_instructions,
@@ -189,12 +208,14 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
             'has_errors': history.has_errors(),
         }
         
+        print(f"Tarefa {task_id} concluída com sucesso")
         return result
         
     except Exception as e:
         # Em caso de erro, retornar informações de erro
-        import traceback
         error_details = traceback.format_exc()
+        print(f"Erro na execução da tarefa {task_id}: {e}")
+        print(error_details)
         
         return {
             'id': task_id,
