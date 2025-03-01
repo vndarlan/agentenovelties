@@ -1,22 +1,22 @@
 # Dependências principais
-streamlit>=1.22.0
-pandas>=1.5.3
-psycopg2-binary>=2.9.5
-SQLAlchemy>=2.0.15
-sqlalchemy-utils>=0.40.0
+streamlit==1.27.0
+pandas==1.5.3
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.20
+sqlalchemy-utils==0.40.0
 
 # LangChain e modelos de LLM
-langchain-core>=0.1.0
-langchain-openai>=0.0.2
-langchain-anthropic>=0.1.0
-langchain-google-genai>=0.0.6
-langchain-ollama>=0.0.2
+langchain-core==0.1.0
+langchain-openai==0.0.2
+langchain-anthropic==0.1.0
+langchain-google-genai==0.0.6
+langchain-ollama==0.0.2
 
 # Browser-use e dependências
-browser-use>=0.0.41
-playwright>=1.36.0
-Pillow>=9.5.0
+browser-use==0.0.41
+playwright==1.40.0
+Pillow==9.5.0
 
 # Utilidades
-pydantic>=2.0.0
-python-dotenv>=1.0.0
+pydantic==2.0.3
+python-dotenv==1.0.0
