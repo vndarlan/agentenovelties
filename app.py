@@ -8,12 +8,11 @@ import tempfile
 import json
 import threading
 
-# Configuração inicial do Streamlit
+# Configuração inicial do Streamlit - versão simplificada para evitar problemas de renderização
 st.set_page_config(
     page_title="Gerenciador de Agentes IA",
     page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 # Verificar se estamos em ambiente Railway
@@ -355,61 +354,53 @@ def create_task_page():
             st.switch_page("app.py")  # Volta para a página de configuração
 
 def task_list_page():
-    """Página que lista todas as tarefas"""
+    """Página que lista todas as tarefas - versão simplificada"""
     st.title("📋 Minhas Tarefas")
     
-    # Obter tarefas do banco de dados
-    with get_db_session() as session:
-        # Converter as tarefas do SQLAlchemy para dicionários enquanto a sessão está aberta
-        task_dicts = []
-        for task in session.query(Task).order_by(Task.created_at.desc()).all():
-            task_dicts.append({
-                "id": task.id,
-                "task": task.task,
-                "status": task.status,
-                "llm_provider": task.llm_provider,
-                "llm_model": task.llm_model,
-                "created_at": task.created_at,
-                "finished_at": task.finished_at
-            })
+    try:
+        # Obter tarefas do banco de dados
+        with get_db_session() as session:
+            # Converter as tarefas do SQLAlchemy para dicionários enquanto a sessão está aberta
+            task_dicts = []
+            for task in session.query(Task).order_by(Task.created_at.desc()).all():
+                task_dicts.append({
+                    "id": task.id,
+                    "task": task.task,
+                    "status": task.status,
+                    "llm_provider": task.llm_provider,
+                    "llm_model": task.llm_model,
+                    "created_at": task.created_at,
+                    "finished_at": task.finished_at
+                })
+        
+        # Verificar se existem tarefas
+        if not task_dicts:
+            st.info("Você ainda não possui tarefas. Crie uma nova na aba 'Criar Tarefa'.")
+            return
+        
+        # Exibir lista simples de tarefas
+        st.write("### Lista de Tarefas")
+        
+        for i, task in enumerate(task_dicts):
+            task_id = task["id"]
+            task_desc = task["task"][:50] + "..." if len(task["task"]) > 50 else task["task"]
+            task_status = task["status"]
+            task_date = format_datetime(task["created_at"])
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**{i+1}. {task_desc}** (ID: `{task_id}`)")
+                st.write(f"Status: {task_status} | Criado: {task_date}")
+            with col2:
+                if st.button(f"Ver Detalhes", key=f"view_{task_id}"):
+                    st.session_state.current_task = task_id
+                    st.experimental_rerun()
+            
+            st.markdown("---")
     
-    # Verificar se existem tarefas
-    if not task_dicts:
-        st.info("Você ainda não possui tarefas. Crie uma nova na aba 'Criar Tarefa'.")
-        return
-    
-    # Preparar dados para tabela
-    table_data = []
-    for task in task_dicts:
-        table_data.append({
-            "ID": task["id"],
-            "Instrução": task["task"][:50] + "..." if len(task["task"]) > 50 else task["task"],
-            "Status": task["status"],
-            "Modelo": f"{task['llm_provider']} / {task['llm_model']}",
-            "Criado em": format_datetime(task["created_at"]),
-            "Concluído em": format_datetime(task["finished_at"]) if task["finished_at"] else "N/A",
-        })
-    
-    df = pd.DataFrame(table_data)
-    
-    # Exibir tabela SEM seleção (compatível com streamlit 1.42.0)
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-    )
-    
-    # Adicionar seleção manual
-    task_ids = [task["id"] for task in task_dicts]
-    selected_task = st.selectbox(
-        "Selecione uma tarefa para visualizar detalhes:",
-        options=task_ids,
-        format_func=lambda x: f"{x} - {next((task['task'][:30] + '...' if len(task['task']) > 30 else task['task']) for task in task_dicts if task['id'] == x)}"
-    )
-    
-    if st.button("Ver Detalhes da Tarefa", key="view_details"):
-        st.session_state.current_task = selected_task
-        st.experimental_rerun()
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar as tarefas: {str(e)}")
+        st.code(str(e))
 
 def execute_task_thread(task_id):
     """Executa uma tarefa em uma thread separada"""
@@ -680,14 +671,11 @@ def main():
     # Inicializar estado da sessão
     init_session_state()
     
-    # Sidebar
+    # Sidebar - versão mais simples para evitar problemas de renderização
     with st.sidebar:
         st.title("🤖 Gerenciador de Agentes IA")
-        st.caption("Versão Browser Use Local")
         
-        st.divider()
-        
-        # Menu
+        # Menu simplificado
         nav_options = ["Configuração", "Criar Tarefa", "Minhas Tarefas"]
         if st.session_state.current_task:
             nav_options.append("Detalhes da Tarefa")
@@ -695,14 +683,8 @@ def main():
         nav_option = st.radio(
             "Navegação",
             options=nav_options,
-            index=3 if st.session_state.current_task and "Detalhes da Tarefa" in nav_options else 0
+            index=0
         )
-        
-        st.divider()
-        
-        # Footer
-        st.markdown("---")
-        st.markdown("Desenvolvido com ❤️ por Claude")
     
     # Conteúdo principal
     if nav_option == "Configuração":
