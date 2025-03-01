@@ -5,53 +5,104 @@ from datetime import datetime
 import tempfile
 from pathlib import Path
 
-# Importações do Browser Use
-from browser_use import Agent, Browser, BrowserConfig
-from browser_use.browser.context import BrowserContextConfig
-from utils.browser_config import get_browser_config
+# Importar instaladores dinâmicos
+try:
+    from install_langchain import setup_langchain
+    from install_browser_use import setup_browser_use
+except ImportError:
+    # Se os instaladores não estiverem disponíveis, criar funções vazias
+    def setup_langchain():
+        return True
+    def setup_browser_use():
+        return True
+
+# Verificar e instalar dependências
+setup_langchain()
+setup_browser_use()
+
+# Tentar importações após garantir que as dependências estão instaladas
+try:
+    # Importações do Browser Use
+    from browser_use import Agent, Browser, BrowserConfig
+    from browser_use.browser.context import BrowserContextConfig
+    from utils.browser_config import get_browser_config
+except ImportError as e:
+    print(f"Erro ao importar pacotes do browser_use: {e}")
+    # Definir funções de fallback para evitar erros fatais
+    class Browser:
+        def __init__(self, config):
+            self.config = config
+        async def close(self):
+            pass
+    
+    class Agent:
+        def __init__(self, task, llm, browser):
+            self.task = task
+            self.llm = llm
+            self.browser = browser
+        async def run(self):
+            return {
+                'status': 'failed',
+                'errors': [f"Não foi possível carregar as dependências do browser_use: {e}"],
+                'final_result': lambda: "Falha ao carregar dependências necessárias",
+                'model_actions': lambda: [],
+                'urls': lambda: [],
+                'screenshots': lambda: [],
+                'extracted_content': lambda: [],
+                'is_done': lambda: False,
+                'has_errors': lambda: True
+            }
 
 def get_llm_instance(provider, model, api_key, endpoint=None):
     """Retorna uma instância do LLM configurado"""
-    if provider == 'openai':
-        from langchain_openai import ChatOpenAI
-        os.environ["OPENAI_API_KEY"] = api_key
-        return ChatOpenAI(model=model, temperature=0.0)
+    try:
+        if provider == 'openai':
+            from langchain_openai import ChatOpenAI
+            os.environ["OPENAI_API_KEY"] = api_key
+            return ChatOpenAI(model=model, temperature=0.0)
+            
+        elif provider == 'anthropic':
+            from langchain_anthropic import ChatAnthropic
+            os.environ["ANTHROPIC_API_KEY"] = api_key
+            return ChatAnthropic(model_name=model, temperature=0.0)
+            
+        elif provider == 'azure':
+            from langchain_openai import AzureChatOpenAI
+            from pydantic import SecretStr
+            return AzureChatOpenAI(
+                model=model,
+                api_version='2024-10-21',
+                azure_endpoint=endpoint,
+                api_key=SecretStr(api_key),
+            )
+            
+        elif provider == 'gemini':
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            from pydantic import SecretStr
+            os.environ["GEMINI_API_KEY"] = api_key
+            return ChatGoogleGenerativeAI(model=model, api_key=SecretStr(api_key))
+            
+        elif provider == 'deepseek':
+            from langchain_openai import ChatOpenAI
+            from pydantic import SecretStr
+            return ChatOpenAI(base_url='https://api.deepseek.com/v1', model=model, api_key=SecretStr(api_key))
+            
+        elif provider == 'ollama':
+            from langchain_ollama import ChatOllama
+            return ChatOllama(model=model, num_ctx=32000)
         
-    elif provider == 'anthropic':
-        from langchain_anthropic import ChatAnthropic
-        os.environ["ANTHROPIC_API_KEY"] = api_key
-        return ChatAnthropic(model_name=model, temperature=0.0)
-        
-    elif provider == 'azure':
-        from langchain_openai import AzureChatOpenAI
-        from pydantic import SecretStr
-        return AzureChatOpenAI(
-            model=model,
-            api_version='2024-10-21',
-            azure_endpoint=endpoint,
-            api_key=SecretStr(api_key),
-        )
-        
-    elif provider == 'gemini':
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        from pydantic import SecretStr
-        os.environ["GEMINI_API_KEY"] = api_key
-        return ChatGoogleGenerativeAI(model=model, api_key=SecretStr(api_key))
-        
-    elif provider == 'deepseek':
-        from langchain_openai import ChatOpenAI
-        from pydantic import SecretStr
-        return ChatOpenAI(base_url='https://api.deepseek.com/v1', model=model, api_key=SecretStr(api_key))
-        
-    elif provider == 'ollama':
-        from langchain_ollama import ChatOllama
-        return ChatOllama(model=model, num_ctx=32000)
-    
-    else:
-        # Por padrão, usar OpenAI
-        from langchain_openai import ChatOpenAI
-        os.environ["OPENAI_API_KEY"] = api_key
-        return ChatOpenAI(model=model, temperature=0.0)
+        else:
+            # Por padrão, usar OpenAI
+            from langchain_openai import ChatOpenAI
+            os.environ["OPENAI_API_KEY"] = api_key
+            return ChatOpenAI(model=model, temperature=0.0)
+    except Exception as e:
+        print(f"Erro ao criar instância LLM ({provider}/{model}): {e}")
+        # Retornar um objeto dummy que apenas registra o erro
+        class DummyLLM:
+            def __call__(self, *args, **kwargs):
+                return f"Erro: {e}"
+        return DummyLLM()
 
 async def run_agent_task(task_id, task_instructions, llm, browser_config, save_path=None):
     """Executa uma tarefa de agente de forma assíncrona"""
@@ -69,7 +120,16 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
         )
         
         # Configurar o navegador usando a configuração otimizada
-        browser_conf = get_browser_config(browser_config)
+        try:
+            from utils.browser_config import get_browser_config
+            browser_conf = get_browser_config(browser_config)
+        except ImportError:
+            # Configuração de fallback se não puder importar
+            browser_conf = BrowserConfig(
+                headless=True,
+                disable_security=True
+            )
+        
         browser = Browser(config=browser_conf)
         
         # Configurar e executar o agente
