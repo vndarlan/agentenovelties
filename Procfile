@@ -1,1 +1,1 @@
-web: playwright install && streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+web: playwright install --with-deps chromium && streamlit run app.py --server.port=$PORT --server.address=0.0.0.0

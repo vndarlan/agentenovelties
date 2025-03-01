@@ -8,6 +8,7 @@ from pathlib import Path
 # Importações do Browser Use
 from browser_use import Agent, Browser, BrowserConfig
 from browser_use.browser.context import BrowserContextConfig
+from utils.browser_config import get_browser_config
 
 def get_llm_instance(provider, model, api_key, endpoint=None):
     """Retorna uma instância do LLM configurado"""
@@ -67,26 +68,8 @@ async def run_agent_task(task_id, task_instructions, llm, browser_config, save_p
             llm.get('endpoint')
         )
         
-        # Configurar o navegador
-        context_config = BrowserContextConfig(
-            browser_window_size={
-                'width': browser_config['browser_window_width'], 
-                'height': browser_config['browser_window_height']
-            },
-            highlight_elements=browser_config['highlight_elements'],
-        )
-        
-        browser_conf = BrowserConfig(
-            headless=browser_config['headless'],
-            disable_security=browser_config['disable_security'],
-            new_context_config=context_config,
-            chrome_instance_path=browser_config['chrome_instance_path'] if browser_config['chrome_instance_path'] else None
-        )
-        
-        # Para ambientes de servidor (Railway), forçar o modo headless
-        if os.environ.get('RAILWAY_ENVIRONMENT'):
-            browser_conf.headless = True
-        
+        # Configurar o navegador usando a configuração otimizada
+        browser_conf = get_browser_config(browser_config)
         browser = Browser(config=browser_conf)
         
         # Configurar e executar o agente

@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "echo building..."
 
 [deploy]
-startCommand = "playwright install && streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"
+startCommand = "playwright install --with-deps chromium && streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
