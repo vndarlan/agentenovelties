@@ -321,7 +321,7 @@ def create_task_page():
                 
                 # Redirecionar para página de detalhes
                 time.sleep(1)
-                st.rerun()
+                st.experimental_rerun()
     
     with col2:
         # Dicas
@@ -355,23 +355,34 @@ def task_list_page():
     
     # Obter tarefas do banco de dados
     with get_db_session() as session:
-        tasks = session.query(Task).order_by(Task.created_at.desc()).all()
+        # Converter as tarefas do SQLAlchemy para dicionários enquanto a sessão está aberta
+        task_dicts = []
+        for task in session.query(Task).order_by(Task.created_at.desc()).all():
+            task_dicts.append({
+                "id": task.id,
+                "task": task.task,
+                "status": task.status,
+                "llm_provider": task.llm_provider,
+                "llm_model": task.llm_model,
+                "created_at": task.created_at,
+                "finished_at": task.finished_at
+            })
     
     # Verificar se existem tarefas
-    if not tasks:
+    if not task_dicts:
         st.info("Você ainda não possui tarefas. Crie uma nova na aba 'Criar Tarefa'.")
         return
     
     # Preparar dados para tabela
     table_data = []
-    for task in tasks:
+    for task in task_dicts:
         table_data.append({
-            "ID": task.id,
-            "Instrução": task.task[:50] + "..." if len(task.task) > 50 else task.task,
-            "Status": task.status,
-            "Modelo": f"{task.llm_provider} / {task.llm_model}",
-            "Criado em": format_datetime(task.created_at),
-            "Concluído em": format_datetime(task.finished_at) if task.finished_at else "N/A",
+            "ID": task["id"],
+            "Instrução": task["task"][:50] + "..." if len(task["task"]) > 50 else task["task"],
+            "Status": task["status"],
+            "Modelo": f"{task['llm_provider']} / {task['llm_model']}",
+            "Criado em": format_datetime(task["created_at"]),
+            "Concluído em": format_datetime(task["finished_at"]) if task["finished_at"] else "N/A",
         })
     
     df = pd.DataFrame(table_data)
@@ -395,7 +406,7 @@ def task_list_page():
     if selected_indices:
         selected_task_id = df.iloc[selected_indices.rows[0]]["ID"]
         st.session_state.current_task = selected_task_id
-        st.rerun()
+        st.experimental_rerun()
 
 async def execute_task(task_id):
     """Executa uma tarefa específica"""
@@ -479,17 +490,39 @@ def task_detail_page():
     # Obter tarefa e histórico do banco de dados
     with get_db_session() as session:
         task = session.query(Task).filter(Task.id == task_id).first()
+        
+        if not task:
+            st.error(f"Tarefa {task_id} não encontrada.")
+            if st.button("Voltar à lista de tarefas"):
+                st.session_state.current_task = None
+                st.experimental_rerun()
+            return
+        
+        # Armazenar os atributos que precisamos enquanto a sessão está aberta
+        task_data = {
+            'id': task.id,
+            'status': task.status,
+            'created_at': task.created_at,
+            'finished_at': task.finished_at,
+            'llm_provider': task.llm_provider,
+            'llm_model': task.llm_model,
+            'task': task.task,
+            'output': task.output
+        }
+        
+        # Obter o histórico da tarefa
         task_history = session.query(TaskHistory).filter(TaskHistory.task_id == task_id).first()
-    
-    if not task:
-        st.error(f"Tarefa {task_id} não encontrada.")
-        if st.button("Voltar à lista de tarefas"):
-            st.session_state.current_task = None
-            st.rerun()
-        return
+        history_data = None
+        if task_history:
+            history_data = {
+                'steps': task_history.steps,
+                'urls': task_history.urls,
+                'screenshots': task_history.screenshots,
+                'errors': task_history.errors
+            }
     
     # Exibir cabeçalho
-    status = task.status
+    status = task_data['status']
     status_color = get_status_color(status)
     
     st.title(f"📊 Detalhes da Tarefa")
@@ -517,14 +550,14 @@ def task_detail_page():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown(f"**Criada em:** {format_datetime(task.created_at)}")
-        if task.finished_at:
-            st.markdown(f"**Concluída em:** {format_datetime(task.finished_at)}")
-        st.markdown(f"**Modelo:** {task.llm_provider} / {task.llm_model}")
+        st.markdown(f"**Criada em:** {format_datetime(task_data['created_at'])}")
+        if task_data['finished_at']:
+            st.markdown(f"**Concluída em:** {format_datetime(task_data['finished_at'])}")
+        st.markdown(f"**Modelo:** {task_data['llm_provider']} / {task_data['llm_model']}")
     
     # Instruções
     st.markdown("### Instruções")
-    st.code(task.task)
+    st.code(task_data['task'])
     
     # Se o status for 'created', executar a tarefa automaticamente quando a página for carregada
     if status == 'created':
@@ -541,12 +574,12 @@ def task_detail_page():
             placeholder.error("Erro ao executar a tarefa.")
     
     # Exibir resultados se a tarefa estiver concluída e houver dados no histórico
-    if task_history and status in ['finished', 'failed']:
+    if history_data and status in ['finished', 'failed']:
         # Desserializar os dados do histórico
-        steps = json.loads(task_history.steps) if task_history.steps else []
-        urls = json.loads(task_history.urls) if task_history.urls else []
-        screenshots = json.loads(task_history.screenshots) if task_history.screenshots else []
-        errors = json.loads(task_history.errors) if task_history.errors else []
+        steps = json.loads(history_data['steps']) if history_data['steps'] else []
+        urls = json.loads(history_data['urls']) if history_data['urls'] else []
+        screenshots = json.loads(history_data['screenshots']) if history_data['screenshots'] else []
+        errors = json.loads(history_data['errors']) if history_data['errors'] else []
         
         # Mostrar passos da execução
         if steps:
@@ -579,9 +612,9 @@ def task_detail_page():
                     st.warning(f"Imagem não encontrada: {screenshot}")
         
         # Mostrar resultado final
-        if task.output:
+        if task_data['output']:
             st.markdown("### Resultado Final")
-            st.code(task.output)
+            st.code(task_data['output'])
         
         # Mostrar erros se houver
         if errors:
@@ -592,7 +625,7 @@ def task_detail_page():
     # Botão para voltar à lista
     if st.button("← Voltar à lista de tarefas"):
         st.session_state.current_task = None
-        st.rerun()
+        st.experimental_rerun()
 
 def main():
     """Função principal"""
