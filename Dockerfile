@@ -21,7 +21,7 @@ COPY requirements.txt .
 
 # Instalar dependências em etapas para melhor diagnóstico
 RUN echo "Instalando streamlit e pandas..." && \
-    pip install --no-cache-dir streamlit==1.24.0 pandas==1.5.3 && \
+    pip install --no-cache-dir streamlit==1.42.0 pandas==1.5.3 && \
     echo "Instalando SQLAlchemy..." && \
     pip install --no-cache-dir SQLAlchemy==2.0.15 sqlalchemy-utils==0.40.0 && \
     echo "Instalando psycopg2..." && \
