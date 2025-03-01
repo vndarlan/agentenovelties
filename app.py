@@ -7,23 +7,32 @@ from datetime import datetime
 import tempfile
 import json
 
-# Importações internas
-from db.database import init_db, get_db_session
-from db.models import Task, TaskHistory, ApiKey
-from utils.agent_runner import run_agent_task
-from utils.helpers import format_datetime, get_status_color, generate_unique_id, get_llm_models
-from utils.health_check import setup_health_check
-
-# Iniciar healthcheck para o Railway (antes de qualquer coisa)
-setup_health_check()
-
-# Configuração da página
+# Configuração inicial do Streamlit
 st.set_page_config(
     page_title="Gerenciador de Agentes IA",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Verificar se estamos em ambiente Railway
+if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_PUBLIC_DOMAIN'):
+    try:
+        print("Ambiente Railway detectado, importando health_check")
+        from health_check import setup_healthcheck
+        setup_healthcheck()
+        print("Healthcheck configurado com sucesso")
+    except Exception as e:
+        print(f"Erro ao configurar healthcheck: {e}")
+
+# Importações internas
+try:
+    from db.database import init_db, get_db_session
+    from db.models import Task, TaskHistory, ApiKey
+    from utils.agent_runner import run_agent_task
+    from utils.helpers import format_datetime, get_status_color, generate_unique_id, get_llm_models
+except ImportError as e:
+    st.error(f"Erro ao importar módulos: {e}")
 
 # Inicialização de variáveis de sessão
 def init_session_state():
@@ -39,7 +48,7 @@ def init_session_state():
     if 'browser_config' not in st.session_state:
         # Carregar config do banco de dados ou usar padrão
         st.session_state.browser_config = {
-            'headless': False,
+            'headless': True,  # Mudado para True para Railway
             'disable_security': True,
             'browser_window_width': 1280,
             'browser_window_height': 1100,
@@ -589,18 +598,25 @@ def main():
     """Função principal"""
     # Inicializar banco de dados se necessário
     if not st.session_state.get('db_initialized', False):
-        init_db()
-        
-        # Carregar configurações do navegador do banco de dados
-        with get_db_session() as session:
-            browser_config = session.query(ApiKey).filter(ApiKey.provider == 'browser_config').first()
-            if browser_config and browser_config.api_key:
-                try:
-                    st.session_state.browser_config = json.loads(browser_config.api_key)
-                except:
-                    pass
-        
-        st.session_state.db_initialized = True
+        try:
+            print("Inicializando banco de dados...")
+            init_db()
+            print("Banco de dados inicializado com sucesso")
+            
+            # Carregar configurações do navegador do banco de dados
+            with get_db_session() as session:
+                browser_config = session.query(ApiKey).filter(ApiKey.provider == 'browser_config').first()
+                if browser_config and browser_config.api_key:
+                    try:
+                        st.session_state.browser_config = json.loads(browser_config.api_key)
+                        print("Configurações do navegador carregadas do banco de dados")
+                    except Exception as e:
+                        print(f"Erro ao carregar configurações do navegador: {e}")
+            
+            st.session_state.db_initialized = True
+            print("Inicialização concluída")
+        except Exception as e:
+            st.error(f"Erro ao inicializar banco de dados: {e}")
     
     # Inicializar estado da sessão
     init_session_state()

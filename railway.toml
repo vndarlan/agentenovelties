@@ -1,12 +1,13 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "echo building..."
+builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "bash startup.sh"
-healthcheckPath = "/"
-healthcheckTimeout = 600
-healthcheckInterval = 30
-healthcheckPort = 8000
+healthcheckPath = "/_stcore/health"
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
+restartPolicyMaxRetries = 5
+
+[env]
+PORT = "8501"
+PLAYWRIGHT_BROWSERS_PATH = "/ms-playwright"
+PYTHONUNBUFFERED = "1"
