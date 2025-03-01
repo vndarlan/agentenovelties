@@ -12,6 +12,10 @@ from db.database import init_db, get_db_session
 from db.models import Task, TaskHistory, ApiKey
 from utils.agent_runner import run_agent_task
 from utils.helpers import format_datetime, get_status_color, generate_unique_id, get_llm_models
+from utils.health_check import setup_health_check
+
+# Iniciar healthcheck para o Railway (antes de qualquer coisa)
+setup_health_check()
 
 # Configuração da página
 st.set_page_config(

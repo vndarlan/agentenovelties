@@ -1,0 +1,36 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8501
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/browser_agent
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=browser_agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

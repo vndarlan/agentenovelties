@@ -4,7 +4,7 @@ buildCommand = "echo building..."
 
 [deploy]
 startCommand = "playwright install --with-deps chromium && streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"
-healthcheckPath = "/"
-healthcheckTimeout = 100
+healthcheckPath = "/_stcore/health"
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
