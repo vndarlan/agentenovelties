@@ -1,4 +1,5 @@
 import os
+import asyncio  # Adicionando importação que estava faltando
 from browser_use import BrowserConfig, Controller
 from browser_use.browser.context import BrowserContextConfig
 

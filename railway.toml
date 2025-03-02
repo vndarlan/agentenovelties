@@ -11,3 +11,4 @@ restartPolicyMaxRetries = 5
 PORT = "8501"
 PLAYWRIGHT_BROWSERS_PATH = "/ms-playwright"
 PYTHONUNBUFFERED = "1"
+STREAMLIT_APP = "debug_app.py"  # Alterar para usar o app de diagnóstico
