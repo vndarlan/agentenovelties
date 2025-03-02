@@ -1,8 +1,28 @@
 #!/bin/bash
-# Não usar set -e para evitar saída prematura
-set +e
+# Script de inicialização atualizado com melhor diagnóstico e tratamento de erros
+
+set +e  # Não sair em caso de erro
 
 echo "🔄 Iniciando script de inicialização..."
+echo "📋 Diretório atual: $(pwd)"
+echo "📋 Listando arquivos: $(ls -la)"
+echo "📋 Variáveis de ambiente: PORT=$PORT, RAILWAY_ENVIRONMENT=$RAILWAY_ENVIRONMENT"
+
+# Função para verificar se um arquivo existe
+check_file() {
+    if [ -f "$1" ]; then
+        echo "✅ Arquivo $1 encontrado"
+    else
+        echo "❌ Arquivo $1 não encontrado"
+    fi
+}
+
+# Verificar arquivos críticos
+check_file "app.py"
+check_file "minimal_app.py"
+check_file "install_browser_use.py"
+check_file "install_langchain.py"
+check_file "requirements.txt"
 
 # Iniciar servidor de healthcheck em segundo plano na porta 8000
 echo "🔄 Iniciando servidor de healthcheck na porta 8000..."
@@ -21,27 +41,36 @@ class HealthHandler(http.server.SimpleHTTPRequestHandler):
         return
 
 with socketserver.TCPServer(('0.0.0.0', 8000), HealthHandler) as httpd:
-    print('Servidor rodando na porta 8000')
+    print('Servidor healthcheck rodando na porta 8000')
     httpd.serve_forever()
 " &
 
 # Verificar se o Playwright já está instalado
 if [ -d "/ms-playwright" ] && [ -d "/ms-playwright/chromium" ]; then
-  echo "✅ Playwright já instalado em /ms-playwright"
+    echo "✅ Playwright já instalado em /ms-playwright"
+    echo "📋 Conteúdo do diretório Playwright: $(ls -la /ms-playwright)"
 else
-  echo "🔄 Instalando Playwright..."
-  # Tentar até 3 vezes instalar o Playwright
-  for i in {1..3}; do
-    playwright install --with-deps chromium && break || echo "Tentativa $i falhou"
-    sleep 5
-  done
-  echo "✅ Playwright instalado com sucesso"
+    echo "🔄 Instalando Playwright..."
+    python -m playwright install --with-deps chromium || echo "⚠️ Falha ao instalar Playwright, mas continuando..."
 fi
 
-# Aguardar um pouco para garantir que tudo esteja pronto
-sleep 3
+# Configurar os módulos de fallback
+echo "🔄 Configurando módulos de fallback..."
+python install_browser_use.py || echo "⚠️ Falha na configuração do fallback de browser-use, mas continuando..."
+python install_langchain.py || echo "⚠️ Falha na configuração do fallback de langchain, mas continuando..."
 
-# Verifica se o banco de dados está acessível
+# Determinar qual app iniciar
+if [ -f "minimal_app.py" ]; then
+    echo "🔄 Usando minimal_app.py como aplicativo principal"
+    APP_TO_RUN="minimal_app.py"
+    # Copiar para app.py para compatibilidade
+    cp minimal_app.py app.py
+else
+    echo "🔄 Usando app.py como aplicativo principal"
+    APP_TO_RUN="app.py"
+fi
+
+# Verificar conexão com o banco de dados
 echo "🔄 Verificando conexão com o banco de dados..."
 python -c "
 import os
@@ -72,5 +101,5 @@ for i in range(5):
 "
 
 # Iniciar o Streamlit
-echo "🚀 Iniciando Streamlit..."
-streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+echo "🚀 Iniciando Streamlit com aplicativo: $APP_TO_RUN"
+streamlit run $APP_TO_RUN --server.port=$PORT --server.address=0.0.0.0 --logger.level=debug

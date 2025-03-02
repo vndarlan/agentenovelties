@@ -2,17 +2,15 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema necessárias com melhor tratamento de erros
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
     libpq-dev \
     wget \
     curl \
     gnupg \
-    lsb-release \
-    ca-certificates \
+    git \
     # Dependências para o Playwright
     libnss3 \
     libatk1.0-0 \
@@ -31,52 +29,44 @@ RUN apt-get update && \
     libcairo2 \
     libxcursor1 \
     libgtk-3-0 \
-    fonts-noto-color-emoji \
-    fonts-freefont-ttf \
-    libgconf-2-4 \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "Instalação de dependências do sistema concluída"
+    && rm -rf /var/lib/apt/lists/*
 
-# Atualizar pip e instalar dependências básicas
+# Atualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copiar apenas o requirements.txt primeiro
+# Copiar requirements.txt
 COPY requirements.txt .
 
-# Instalar dependências Python com melhor diagnóstico
+# Instalar dependências Python
 RUN pip install --no-cache-dir -r requirements.txt && \
-    echo "Instalação de dependências Python concluída"
+    pip install playwright==1.38.0
 
-# Verificar módulos instalados para diagnóstico
-RUN pip list
+# Instalar Playwright e navegadores
+RUN python -m playwright install --with-deps chromium || \
+    echo "Aviso: Instalação do Playwright pode estar incompleta, mas continuando..."
 
-# Instalar navegadores para Playwright com melhor diagnóstico
-RUN echo "Instalando navegadores Playwright..." && \
-    python -m playwright install --with-deps chromium && \
-    echo "Instalação do Playwright concluída"
-
-# Verificar se o Playwright foi instalado corretamente
-RUN ls -la /ms-playwright || echo "Diretório ms-playwright não encontrado"
-
-# Copiar o restante do código do aplicativo
+# Copiar o código da aplicação
 COPY . .
 
-# Verificar arquivos copiados para diagnóstico
-RUN ls -la
+# Assegurar que os arquivos Python de instalação e fallback estejam presentes
+COPY install_browser_use.py install_langchain.py ./
 
-# Garantir que os scripts estejam executáveis
-RUN chmod +x startup.sh
+# Pré-executar o script de fallback para garantir que tudo está configurado
+RUN python install_browser_use.py && \
+    python install_langchain.py
 
-# Expor a porta que o Streamlit usará
+# Renomear o app minimalista para ser executado corretamente
+RUN cp minimal_app.py app.py || echo "Arquivo minimal_app.py não encontrado, usando app.py atual"
+
+# Expor a porta
 ENV PORT=8501
 EXPOSE 8501
 
-# Variáveis de ambiente adicionais
+# Configurações adicionais
 ENV PYTHONUNBUFFERED=1
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
-# Criar diretório para healthcheck
-RUN mkdir -p /app/_stcore
-
-# Comando para iniciar o aplicativo (com redirecionamento de logs)
-CMD bash startup.sh 2>&1 | tee /app/startup.log
+# Comando para iniciar o aplicativo
+CMD streamlit run app.py --server.port=$PORT --server.address=0.0.0.0

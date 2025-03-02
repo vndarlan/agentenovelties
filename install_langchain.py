@@ -42,15 +42,15 @@ def setup_langchain():
     """Configura pacotes do LangChain conforme necessário"""
     # Lista de pacotes para instalar sob demanda
     core_packages = [
-        ("langchain_core", "langchain-core==0.0.9"),
+        ("langchain_core", "langchain-core>=0.0.9"),
     ]
     
     # Pacotes adicionais baseados em quais LLMs são usados
     llm_packages = [
-        ("langchain_openai", "langchain-openai==0.0.2"),
-        ("langchain_anthropic", "langchain-anthropic==0.0.7"),
-        ("langchain_google_genai", "langchain-google-genai==0.0.3"),
-        ("langchain_ollama", "langchain-ollama==0.0.1")
+        ("langchain_openai", "langchain-openai>=0.0.2"),
+        ("langchain_anthropic", "langchain-anthropic>=0.0.7"),
+        ("langchain_google_genai", "langchain-google-genai>=0.0.3"),
+        ("langchain_ollama", "langchain-ollama>=0.1.0")  # Corrigido para usar versão disponível
     ]
     
     # Instalar pacotes core
